@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zabbix-web-nginx-mysql
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: zabbix-web-nginx-mysql
+  serviceName: "zabbix-web-nginx-mysql"
+  replicas: 1 
+  template:
+    metadata:
+      labels:
+        app: zabbix-web-nginx-mysql
+    spec:
+      terminationGracePeriodSeconds: 15
+      containers:
+      - image: zabbix/zabbix-web-nginx-mysql
+        name: zabbix-web-nginx-mysql
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+          name: web-http
+        env:
+          - name: MYSQL_DATABASE
+            valueFrom:
+              configMapKeyRef:
+                key: MYSQL_DATABASE
+                name: zabbix-app
+              
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: MYSQL_ROOT_PASSWORD
+                name: zabbix-app
+
+          - name: MYSQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: MYSQL_PASSWORD
+                name: zabbix-app
+        
+          - name: MYSQL_USER
+            valueFrom:
+              secretKeyRef:
+                name: zabbix-app
+                key:  MYSQL_USER
+        resources: {}
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: zabbix-web-nginx-mysql
+  namespace: monitoring
+  labels:
+    app: zabbix
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+      name: web-http
+    - port: 443
+      targetPort: 8443
+      name: web-https
+  selector:
+    app: zabbix-web-nginx-mysql
+  type: LoadBalancer
+
+
+
