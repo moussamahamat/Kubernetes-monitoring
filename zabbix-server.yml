@@ -128,11 +128,3 @@ spec:
   selector:
     app: zabbix-server
   type: ClusterIP
-
-
-
-
-
-
-
-
