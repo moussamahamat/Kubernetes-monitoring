@@ -67,6 +67,3 @@ spec:
   selector:
     app: zabbix-web-nginx-mysql
   type: LoadBalancer
-
-
-
