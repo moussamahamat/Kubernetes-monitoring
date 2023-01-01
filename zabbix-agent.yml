@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zabbix-agent
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: zabbix-agent
+  serviceName: "zabbix-agent"
+  replicas: 1 
+  template:
+    metadata:
+      labels:
+        app: zabbix-agent
+    spec:
+      terminationGracePeriodSeconds: 15
+      containers:
+      - image: zabbix/zabbix-agent:alpine-6.2-latest
+        name: zabbix-agent
+        ports:
+        - containerPort: 10050
+        env:
+          - name: ZBX_SERVER_HOST
+            valueFrom:
+              configMapKeyRef:
+                key: ZBX_SERVER_HOST
+                name: zabbix-app
+
+          - name: ZBX_HOSTNAME
+            valueFrom:
+              configMapKeyRef:
+                key: ZBX_HOSTNAME
+                name: zabbix-app
+        resources: {}
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /etc/zabbix/zabbix_agentd.d
+          name: zabbix-agent-claim2
+          readOnly: true
+      restartPolicy: Always
+      volumes:
+      - name: zabbix-agent-claim2
+        persistentVolumeClaim:
+          claimName: zabbix-agent-claim2
+          readOnly: true
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: monitoring
+  labels:
+    app: zabbix-agent
+  name: zabbix-agent
+spec:
+  ports:
+    - port: 10050
+      targetPort: 10050
+      name: agent-agent
+  selector:
+    app: zabbix-agent
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+
+metadata:
+  namespace: monitoring
+  creationTimestamp: null
+  labels:
+     zabbix-app: zabbix-agent
+  name: zabbix-agent-claim2
+spec:
+  accessModes:
+  - ReadOnlyMany
+  resources:
+    requests:
+      storage: 100Mi
+status: {}
