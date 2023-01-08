@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: zabbix-web-nginx-mysql
-  namespace: monitoring
+  name: zabbix-web
+  namespace: zabbix
 spec:
   selector:
     matchLabels:
-      app: zabbix-web-nginx-mysql
-  serviceName: "zabbix-web-nginx-mysql"
+      app: zabbix-web
+  serviceName: "zabbix-web"
   replicas: 1 
   template:
     metadata:
       labels:
-        app: zabbix-web-nginx-mysql
+        app: zabbix-web
     spec:
       terminationGracePeriodSeconds: 15
       containers:
-      - image: zabbix/zabbix-web-nginx-mysql
-        name: zabbix-web-nginx-mysql
+      - image: zabbix/zabbix-web-nginx-mysql:alpine-6.2-latest
+        name: zabbix-web
         ports:
         - containerPort: 8080
           protocol: TCP
@@ -27,33 +27,51 @@ spec:
             valueFrom:
               configMapKeyRef:
                 key: MYSQL_DATABASE
-                name: zabbix-app
+                name: dbconfig
               
           - name: MYSQL_ROOT_PASSWORD
             valueFrom:
               secretKeyRef:
                 key: MYSQL_ROOT_PASSWORD
-                name: zabbix-app
+                name: mysecret
 
           - name: MYSQL_PASSWORD
             valueFrom:
               secretKeyRef:
                 key: MYSQL_PASSWORD
-                name: zabbix-app
+                name: mysecret
         
           - name: MYSQL_USER
             valueFrom:
               secretKeyRef:
-                name: zabbix-app
                 key:  MYSQL_USER
+                name: mysecret
+
+          - name: ZBX_SERVER_HOST
+            valueFrom:
+              configMapKeyRef:
+                key: ZBX_SERVER_HOST
+                name: dbconfig
+
+          - name: DB_SERVER_HOST
+            valueFrom:
+              configMapKeyRef:
+                key: DB_SERVER_HOST
+                name: dbconfig
+
+          - name: TZ
+            value: "Europe/Paris"
+          - name: PHP_TZ
+            value: "Europe/Paris"
+
         resources: {}
 ---
 
 apiVersion: v1
 kind: Service
 metadata:
-  name: zabbix-web-nginx-mysql
-  namespace: monitoring
+  name: zabbix-web
+  namespace: zabbix
   labels:
     app: zabbix
 spec:
@@ -65,5 +83,5 @@ spec:
       targetPort: 8443
       name: web-https
   selector:
-    app: zabbix-web-nginx-mysql
-  type: LoadBalancer
+    app: zabbix-web
+  type: NodePort
