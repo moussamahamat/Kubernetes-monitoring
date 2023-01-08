@@ -1,73 +1,75 @@
 apiVersion: apps/v1
-kind: StatefulSet
+kind: DaemonSet
 metadata:
+  namespace: zabbix
   name: zabbix-agent
-  namespace: monitoring
+  labels:
+    app: zabbix-agent
 spec:
   selector:
-    matchLabels:
-      app: zabbix-agent
-  serviceName: "zabbix-agent"
-  replicas: 1 
+   matchLabels:
+    name: zabbix-agent
+  updateStrategy:
+   type: RollingUpdate
+   rollingUpdate:
+    maxUnavailable: 1
   template:
     metadata:
       labels:
+        name: zabbix-agent
         app: zabbix-agent
     spec:
-      terminationGracePeriodSeconds: 15
+      hostNetwork: true
       containers:
-      - image: zabbix/zabbix-agent:alpine-6.2-latest
-        name: zabbix-agent
-        ports:
-        - containerPort: 10050
-        env:
-          - name: ZBX_SERVER_HOST
-            valueFrom:
-              configMapKeyRef:
-                key: ZBX_SERVER_HOST
-                name: zabbix-app
+        - name: zabbix-agent
+          image: zabbix/zabbix-agent:alpine-6.2-latest
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: 10050
+            name: zabbix-agent
+          env:
+            - name: ZBX_DEBUGLEVEL
+              value: "5"
+            - name: ZBX_DENYKEY
+              value: "system.run[*]"
+            - name: ZBX_LOGREMOTECOMMANDS
+              value: "1"
+            - name: ZBX_PASSIVE_ALLOW
+              value: "true"
+            - name: ZBX_ACTIVE_ALLOW
+              value: "true"
+            - name: ZBX_UNSAFEUSERPARAMETERS
+              value: "0"
+            - name: DEBUG_MODE
+              value: "3"
+      
+            - name: ZBX_HOSTNAME
+              valueFrom:
+                configMapKeyRef:
+                  key: ZBX_HOSTNAME
+                  name: dbconfig
+            - name: ZBX_SERVER_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: ZBX_SERVER_HOST
+                  name: dbconfig
 
-          - name: ZBX_HOSTNAME
-            valueFrom:
-              configMapKeyRef:
-                key: ZBX_HOSTNAME
-                name: zabbix-app
-        resources: {}
-        securityContext:
-          privileged: true
-        volumeMounts:
-        - mountPath: /etc/zabbix/zabbix_agentd.d
-          name: zabbix-agent-claim2
-          readOnly: true
-      restartPolicy: Always
+          volumeMounts:
+          - mountPath: /etc/zabbix/zabbix_agentd.d
+            name: zabbix-agent-claim2
+            readOnly: true
       volumes:
       - name: zabbix-agent-claim2
         persistentVolumeClaim:
           claimName: zabbix-agent-claim2
           readOnly: true
----
-
-apiVersion: v1
-kind: Service
-metadata:
-  namespace: monitoring
-  labels:
-    app: zabbix-agent
-  name: zabbix-agent
-spec:
-  ports:
-    - port: 10050
-      targetPort: 10050
-      name: agent-agent
-  selector:
-    app: zabbix-agent
 
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 
 metadata:
-  namespace: monitoring
+  namespace: zabbix
   creationTimestamp: null
   labels:
      zabbix-app: zabbix-agent
