@@ -1,118 +1,7 @@
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: zabbix-server
-  namespace: monitoring
-spec:
-  selector:
-    matchLabels:
-      app: zabbix-server
-  serviceName: "zabbix-server"
-  replicas: 1 
-  template:
-    metadata:
-      labels:
-        app: zabbix-server
-    spec:
-      terminationGracePeriodSeconds: 10
-      containers:
-      - image: zabbix/zabbix-server-mysql:alpine-6.2-latest
-        name: zabbix-server
-        ports:
-        - containerPort: 10051
-          protocol: TCP
-          name: zabbix-trapper
-        env:
-          - name: MYSQL_ROOT_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: zabbix-app
-                key: MYSQL_ROOT_PASSWORD
-
-          - name: MYSQL_DATABASE
-            valueFrom:
-              configMapKeyRef:
-                key: MYSQL_DATABASE
-                name: zabbix-app
-
-          - name: MYSQL_USER
-            valueFrom:
-              secretKeyRef:
-                name: zabbix-app
-                key:  MYSQL_USER
-
-          - name: MYSQL_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: zabbix-app
-                key:  MYSQL_PASSWORD
-
-          - name: ZBX_CACHESIZE
-            valueFrom:
-              configMapKeyRef:
-                key: ZBX_CACHESIZE
-                name: zabbix-app
-
-          - name: ZBX_SERVER_HOST
-            valueFrom:
-              configMapKeyRef:
-                key: ZBX_SERVER_HOST
-                name: zabbix-app
-          
-          - name: ZBX_AUTOHANODENAME
-            valueFrom:
-              configMapKeyRef:
-                key: ZBX_AUTOHANODENAME
-                name: zabbix-app
-
-          - name: ZBX_AUTONODEADDRESS
-            valueFrom:
-              configMapKeyRef:
-                key: ZBX_AUTONODEADDRESS
-                name: zabbix-app
-
-          - name: ZBX_SERVICEMANAGERSYNCFREQUENCY
-            valueFrom:
-              configMapKeyRef:
-                key: ZBX_SERVICEMANAGERSYNCFREQUENCY
-                name: zabbix-app
-          
-          - name: ZBX_PROBLEMHOUSEKEEPINGFREQUENCY
-            valueFrom:
-              configMapKeyRef:
-                key: ZBX_PROBLEMHOUSEKEEPINGFREQUENCY
-                name: zabbix-app
-
-          - name: ZBX_JAVAGATEWAY
-            value: "zabbix-java-gateway"
-          - name: ZBX_JAVAGATEWAYPORT
-            value: "10052"
-          - name: ZBX_STARTJAVAPOLLERS
-            value: "5"
-          - name: ZBX_JAVAGATEWAY_ENABLE
-            value: "true"
-          - name: ZBX_ENABLE_SNMP_TRAPS
-            value: "true"
-          - name: ZBX_STARTTRAPPERS
-            value: "5"
-          - name: ZBX_STARTPREPROCESSORS
-            value: "10"
-          - name: ZBX_STARTDBSYNCERS
-            value: "10"
-          - name: ZBX_TRENDCACHESIZE
-            value: "1024M"
-          - name: ZBX_HISTORYCACHESIZE
-            value: "2048M"
-          - name: ZBX_HISTORYINDEXCACHESIZE
-            value: "1024M"
-      restartPolicy: Always
-      
----
-
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: monitoring
+  namespace: zabbix
   name: zabbix-server
   labels:
     app: zabbix-server
@@ -120,11 +9,121 @@ spec:
   ports:
     - port: 10051
       targetPort: 10051
-      name: zabbix-trapper
-    - port: 162
-      targetPort: 1162
-      protocol: UDP
-      name: snmp-trap
   selector:
     app: zabbix-server
-  type: ClusterIP
+  type: NodePort
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: zabbix
+  name: zabbix-server
+  labels:
+    app: zabbix-server
+spec:
+  selector:
+    matchLabels:
+      app: zabbix-server
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: zabbix-server
+    spec:
+      containers:
+      - image: zabbix/zabbix-server-mysql:alpine-6.2-latest
+        name: zabbix-server
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 10051
+          name: zabbix-server
+          protocol: TCP
+          
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysecret
+              key: MYSQL_ROOT_PASSWORD
+
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: mysecret
+              key: MYSQL_USER
+
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysecret
+              key: MYSQL_PASSWORD
+
+        - name: MYSQL_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: dbconfig
+              key: MYSQL_DATABASE
+
+        - name: ZBX_SERVER_HOST
+          valueFrom:
+            configMapKeyRef:
+              key: ZBX_SERVER_HOST
+              name: dbconfig
+
+        - name: DB_SERVER_HOST
+          valueFrom:
+            configMapKeyRef:
+              key: DB_SERVER_HOST
+              name: dbconfig
+        
+        - name: DB_SERVER_PORT
+          valueFrom:
+            configMapKeyRef:
+              key: DB_SERVER_PORT
+              name: dbconfig
+        
+        - name: ZBX_CACHESIZE
+          value: "1024M"
+        - name: TZ
+          value: "Europe/Paris"
+        - name: ZBX_JAVAGATEWAY_ENABLE
+          value: "true"
+        - name: ZBX_JAVAGATEWAY
+          value: "zabbix-java-gateway"
+        - name: ZBX_JAVAGATEWAYPORT
+          value: "10052"
+        - name: ZBX_STARTJAVAPOLLERS
+          value: "5"
+        - name: ZBX_ENABLE_SNMP_TRAPS
+          value: "true"
+        - name: ZBX_HISTORYSTORAGEDATEINDEX
+          value: "1"
+        - name: ZBX_STARTREPORTWRITERS
+          value: "3"
+       
+        volumeMounts:
+          - name: zabbix-scripts
+            mountPath: /usr/lib/zabbix/alertscripts
+      volumes:
+        - name: zabbix-scripts
+          persistentVolumeClaim:
+            claimName: zabbix-scripts
+
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  namespace: zabbix
+  name: zabbix-scripts
+  labels:
+    app: zabbix-server
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi      
