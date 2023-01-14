@@ -84,6 +84,12 @@ spec:
             configMapKeyRef:
               key: DB_SERVER_PORT
               name: dbconfig
+              
+        - name: ZBX_JAVAGATEWAY
+          valueFrom:
+            configMapKeyRef:
+              key: ZBX_JAVAGATEWAY
+              name: dbconfig
         
         - name: ZBX_CACHESIZE
           value: "1024M"
@@ -91,8 +97,6 @@ spec:
           value: "Europe/Paris"
         - name: ZBX_JAVAGATEWAY_ENABLE
           value: "true"
-        - name: ZBX_JAVAGATEWAY
-          value: "zabbix-java-gateway"
         - name: ZBX_JAVAGATEWAYPORT
           value: "10052"
         - name: ZBX_STARTJAVAPOLLERS
