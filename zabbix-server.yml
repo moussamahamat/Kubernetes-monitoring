@@ -106,7 +106,7 @@ spec:
         - name: ZBX_HISTORYSTORAGEDATEINDEX
           value: "1"
         - name: ZBX_STARTREPORTWRITERS
-          value: "3"
+          value: "5"
        
         volumeMounts:
           - name: zabbix-scripts
