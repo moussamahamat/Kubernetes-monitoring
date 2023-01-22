@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: zabbix-server
+  namespace: zabbix
+  labels:
+    app: zabbix-server
+spec:
+  selector:
+    matchLabels:
+      name: zabbix-server
+  template:
+    metadata:
+      labels:
+        name: zabbix-server
+    spec:
+      containers:
+      - name: zabbix-agent
+        image: zabbix/zabbix-agent2
+        ports:
+        - containerPort: 10050
+          name: zabbix-agent
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mysecret
+                key: MYSQL_ROOT_PASSWORD
+
+          - name: MYSQL_USER
+            valueFrom:
+              secretKeyRef:
+                name: mysecret
+                key: MYSQL_USER
+
+          - name: MYSQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mysecret
+                key: MYSQL_PASSWORD
+
+          - name: MYSQL_DATABASE
+            valueFrom:
+              configMapKeyRef:
+                name: dbconfig
+                key: MYSQL_DATABASE
+
+          - name: ZBX_SERVER_HOST
+            valueFrom:
+              configMapKeyRef:
+                key: ZBX_SERVER_HOST
+                name: dbconfig
+
+          - name: DB_SERVER_HOST
+            valueFrom:
+              configMapKeyRef:
+                key: DB_SERVER_HOST
+                name: dbconfig
+        
+          - name: DB_SERVER_PORT
+            valueFrom:
+              configMapKeyRef:
+                key: DB_SERVER_PORT
+                name: dbconfig
+              
+          - name: ZBX_JAVAGATEWAY
+            valueFrom:
+              configMapKeyRef:
+                key: ZBX_JAVAGATEWAY
+                name: dbconfig
+                
+          - name: ZBX_CACHESIZE
+            value: "1024M"
+          - name: TZ
+            value: "Europe/Paris"
+          - name: ZBX_JAVAGATEWAY_ENABLE
+            value: "true"
+          - name: ZBX_JAVAGATEWAYPORT
+            value: "10052"
+          - name: ZBX_STARTJAVAPOLLERS
+            value: "5"
+          - name: ZBX_ENABLE_SNMP_TRAPS
+            value: "true"
+          - name: ZBX_HISTORYSTORAGEDATEINDEX
+            value: "1"
+          - name: ZBX_STARTREPORTWRITERS
+            value: "5"
+            
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+        volumeMounts:
+        - name: zabbix-scripts
+          mountPath: /usr/lib/zabbix/alertscripts
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: zabbix-scripts
+        hostPath:
+          path: /usr/lib/zabbix/alertscripts
